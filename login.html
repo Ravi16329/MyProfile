@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in | MyProfile</title>
+  <link href="https://fonts.googleapis.com/css?family=Poppins:400,600" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3f5fb;
+      --card: #fff;
+      --text: #1c2333;
+      --muted: #6b7385;
+      --accent: #4169e1;
+      --err: #c0392b;
+      --line: #d9dded
+    }
+
+    @media(prefers-color-scheme:dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #10131c;
+        --card: #181c28;
+        --text: #e8ebf5;
+        --muted: #9aa2b8;
+        --line: #2a3042
+      }
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Poppins, Arial, sans-serif;
+      padding: 16px
+    }
+
+    .card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 12px 35px #0000000b
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 5px
+    }
+
+    .sub {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 14px
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      margin: 14px 0 6px
+    }
+
+    input {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      font: inherit
+    }
+
+    input:focus,
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px
+    }
+
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 12px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: wait
+    }
+
+    .ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      margin-top: 10px
+    }
+
+    #msg {
+      min-height: 20px;
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--err);
+      overflow-wrap: anywhere
+    }
+
+    [hidden] {
+      display: none !important
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px
+    }
+  </style>
+</head>
+
+<body>
+  <main class="card">
+    <form id="loginForm">
+      <h1>Sign in</h1>
+      <p class="sub">Enter your email and password to continue.</p>
+      <label for="email">Email address</label><input id="email" type="email" autocomplete="username" required />
+      <label for="password">Password</label><input id="password" type="password" autocomplete="current-password"
+        required />
+      <button id="loginButton" type="submit">Continue</button>
+    </form>
+    <form id="otpForm" hidden>
+      <h1>Check your email</h1>
+      <p class="sub">Enter the six-digit code sent to your registered email address.</p>
+      <label for="otp">Six-digit verification code</label><input id="otp" inputmode="numeric"
+        autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+      <button id="verifyButton" type="submit">Verify and sign in</button>
+      <button id="resendButton" class="ghost" type="button">Send a new code</button>
+      <button id="backButton" class="ghost" type="button">Back to sign in</button>
+      <p class="hint">The code expires after five minutes.</p>
+    </form>
+    <div id="msg" role="alert" aria-live="polite"></div>
+  </main>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword, sendEmailVerification, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+
+    // Firebase Console → Project settings → General → Your apps → SDK setup and configuration.
+    // Replace the placeholder values below with your web app's config.
+    const firebaseConfig = {
+      apiKey: "AIzaSyBdDHomulro4z8QurNUQXmM--yIm_uG4Ug",
+      authDomain: "myprofile-auth.firebaseapp.com",
+      projectId: "myprofile-auth",
+      storageBucket: "myprofile-auth.firebasestorage.app",
+      messagingSenderId: "226092147868",
+      appId: "1:226092147868:web:fa4b240323b7b92f2bb959"
+    };
+    const API = 'https://myprofile-auth-api.onrender.com';
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const $ = id => document.getElementById(id);
+    let firebaseIdToken = null;
+    let challengeId = null;
+    const SESSION_KEY = 'myprofile_mfa_session';
+
+    function say(message, ok = false) {
+      $('msg').textContent = message || '';
+      $('msg').style.color = ok ? 'var(--accent)' : 'var(--err)';
+    }
+    async function api(path, body, token = firebaseIdToken) {
+      const response = await fetch(API + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(body || {})
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+      return data;
+    }
+    async function requestOtp() {
+      const result = await api('/api/auth/request-otp', {});
+      challengeId = result.challengeId;
+      $('loginForm').hidden = true;
+      $('otpForm').hidden = false;
+      $('otp').value = '';
+      $('otp').focus();
+      say('Verification code sent. Check your inbox and spam folder.', true);
+    }
+
+    $('loginForm').addEventListener('submit', async event => {
+      event.preventDefault(); say(''); $('loginButton').disabled = true;
+      try {
+        const credential = await signInWithEmailAndPassword(auth, $('email').value.trim(), $('password').value);
+        if (!credential.user.emailVerified) {
+          await sendEmailVerification(credential.user);
+          await signOut(auth);
+          throw new Error('Please verify your email first. We sent a Firebase verification email; open it, verify your address, then sign in again.');
+        }
+        firebaseIdToken = await credential.user.getIdToken(true);
+        await requestOtp();
+      } catch (error) {
+        firebaseIdToken = null;
+        say(error.message || 'Unable to sign in. Check your email and password.');
+      } finally { $('loginButton').disabled = false; }
+    });
+
+    $('otpForm').addEventListener('submit', async event => {
+      event.preventDefault(); say(''); $('verifyButton').disabled = true;
+      try {
+        const code = $('otp').value.trim();
+        if (!/^\d{6}$/.test(code)) throw new Error('Enter the six-digit code from your email.');
+        const result = await api('/api/auth/verify-otp', { challengeId, code });
+        sessionStorage.setItem(SESSION_KEY, result.sessionToken);
+        // The Firebase token is no longer used as the application's MFA session.
+        await signOut(auth);
+        location.replace('index.html');
+      } catch (error) { say(error.message || 'Could not verify the code.'); }
+      finally { $('verifyButton').disabled = false; }
+    });
+
+    $('resendButton').addEventListener('click', async () => {
+      say(''); $('resendButton').disabled = true;
+      try { await requestOtp(); }
+      catch (error) { say(error.message || 'Could not send a new code.'); }
+      finally { $('resendButton').disabled = false; }
+    });
+    $('backButton').addEventListener('click', async () => {
+      challengeId = null; firebaseIdToken = null;
+      try { await signOut(auth); } catch { }
+      $('otpForm').hidden = true; $('loginForm').hidden = false; say('');
+    });
+  </script>
+</body>
+
+</html>
