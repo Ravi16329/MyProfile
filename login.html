@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sign in</title>
+<link href="https://fonts.googleapis.com/css?family=Poppins:400,600" rel="stylesheet" />
+<style>
+  :root { --bg:#f3f5fb; --card:#fff; --text:#1c2333; --muted:#6b7385; --accent:#4169e1; --err:#c0392b; --line:#d9dded; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#10131c; --card:#181c28; --text:#e8ebf5; --muted:#9aa2b8; --line:#2a3042; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--text); font-family:Poppins, Arial, sans-serif; padding:16px; }
+  .card { width:100%; max-width:380px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:28px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  p.sub { margin:0 0 20px; color:var(--muted); font-size:14px; }
+  label { display:block; font-size:13px; margin:14px 0 6px; }
+  input { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--text); font:inherit; }
+  input:focus, button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  button { width:100%; margin-top:20px; padding:12px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); margin-top:10px; }
+  #msg { min-height:20px; margin-top:14px; font-size:13px; color:var(--err); }
+  #qr { display:block; margin:12px auto; width:180px; height:180px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main class="card">
+  <!-- Step 1: user id + password -->
+  <form id="step1">
+    <h1>Sign in</h1>
+    <p class="sub">Use your user ID and password.</p>
+    <label for="u">User ID</label><input id="u" autocomplete="username" required />
+    <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required />
+    <button type="submit">Continue</button>
+  </form>
+
+  <!-- Step 2: MFA code -->
+  <form id="step2" hidden>
+    <h1>Enter your code</h1>
+    <p class="sub">Open your authenticator app and enter the 6-digit code.</p>
+    <label for="c">6-digit code</label>
+    <input id="c" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+    <button type="submit">Verify and sign in</button>
+  </form>
+
+  <!-- Step 3: logged in -->
+  <section id="done" hidden>
+    <h1 id="hello">Signed in</h1>
+    <p class="sub" id="role"></p>
+    <button id="setup" class="ghost">Set up two-factor authentication</button>
+    <div id="mfaBox" hidden>
+      <p class="sub">Scan this QR code with Google Authenticator or Authy, then enter the code it shows.</p>
+      <img id="qr" alt="QR code for authenticator app" />
+      <input id="ec" inputmode="numeric" maxlength="6" placeholder="6-digit code" />
+      <button id="enable">Turn on two-factor authentication</button>
+    </div>
+    <button id="logout" class="ghost">Sign out</button>
+  </section>
+
+  <div id="msg" role="alert"></div>
+</main>
+
+<script>
+  // Put your Render backend URL here
+  const API = 'https://YOUR-BACKEND.onrender.com';
+  const $ = id => document.getElementById(id);
+  let tempToken = null;
+
+  const say = (t, ok) => { $('msg').style.color = ok ? 'var(--accent)' : 'var(--err)'; $('msg').textContent = t || ''; };
+  async function call(path, method, body) {
+    const r = await fetch(API + path, {
+      method, credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+  async function showDone() {
+    const me = await call('/api/me', 'GET');
+    // Logged in: open the portfolio (unless the user came to set up MFA)
+    if (!location.search.includes('setup')) { location.replace('index.html'); return; }
+    $('step1').hidden = $('step2').hidden = true; $('done').hidden = false;
+    $('hello').textContent = 'Hello, ' + me.username;
+    $('role').textContent = 'Role: ' + me.role;
+    say('');
+  }
+
+  $('step1').onsubmit = async e => {
+    e.preventDefault(); say('');
+    try {
+      const d = await call('/api/login', 'POST', { username: $('u').value, password: $('p').value });
+      if (d.mfaRequired) { tempToken = d.tempToken; $('step1').hidden = true; $('step2').hidden = false; $('c').focus(); }
+      else await showDone();
+    } catch (err) { say(err.message); }
+  };
+  $('step2').onsubmit = async e => {
+    e.preventDefault(); say('');
+    try { await call('/api/mfa/verify', 'POST', { tempToken, code: $('c').value }); await showDone(); }
+    catch (err) { say(err.message); }
+  };
+  $('setup').onclick = async () => {
+    try { const d = await call('/api/mfa/setup', 'POST'); $('qr').src = d.qr; $('mfaBox').hidden = false; }
+    catch (err) { say(err.message); }
+  };
+  $('enable').onclick = async () => {
+    try { await call('/api/mfa/enable', 'POST', { code: $('ec').value }); $('mfaBox').hidden = true; say('Two-factor authentication is on.', true); }
+    catch (err) { say(err.message); }
+  };
+  $('logout').onclick = async () => { await call('/api/logout', 'POST'); location.reload(); };
+</script>
+</body>
+</html>
