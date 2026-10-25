@@ -4,7 +4,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+<<<<<<< HEAD
   <title>Sign in | MyProfile</title>
+=======
+  <title>Sign in</title>
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
   <link href="https://fonts.googleapis.com/css?family=Poppins:400,600" rel="stylesheet" />
   <style>
     :root {
@@ -14,21 +18,36 @@
       --muted: #6b7385;
       --accent: #4169e1;
       --err: #c0392b;
+<<<<<<< HEAD
       --line: #d9dded
     }
 
     @media(prefers-color-scheme:dark) {
+=======
+      --line: #d9dded;
+    }
+
+    @media (prefers-color-scheme: dark) {
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
       :root:not([data-theme="light"]) {
         --bg: #10131c;
         --card: #181c28;
         --text: #e8ebf5;
         --muted: #9aa2b8;
+<<<<<<< HEAD
         --line: #2a3042
+=======
+        --line: #2a3042;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
       }
     }
 
     * {
+<<<<<<< HEAD
       box-sizing: border-box
+=======
+      box-sizing: border-box;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
     }
 
     body {
@@ -39,21 +58,34 @@
       background: var(--bg);
       color: var(--text);
       font-family: Poppins, Arial, sans-serif;
+<<<<<<< HEAD
       padding: 16px
+=======
+      padding: 16px;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
     }
 
     .card {
       width: 100%;
+<<<<<<< HEAD
       max-width: 400px;
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 28px;
       box-shadow: 0 12px 35px #0000000b
+=======
+      max-width: 380px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 28px;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
     }
 
     h1 {
       font-size: 22px;
+<<<<<<< HEAD
       margin: 0 0 5px
     }
 
@@ -61,12 +93,25 @@
       margin: 0 0 20px;
       color: var(--muted);
       font-size: 14px
+=======
+      margin: 0 0 4px;
+    }
+
+    p.sub {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 14px;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
     }
 
     label {
       display: block;
       font-size: 13px;
+<<<<<<< HEAD
       margin: 14px 0 6px
+=======
+      margin: 14px 0 6px;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
     }
 
     input {
@@ -76,22 +121,35 @@
       border-radius: 8px;
       background: transparent;
       color: var(--text);
+<<<<<<< HEAD
       font: inherit
+=======
+      font: inherit;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
     }
 
     input:focus,
     button:focus-visible {
       outline: 2px solid var(--accent);
+<<<<<<< HEAD
       outline-offset: 1px
+=======
+      outline-offset: 1px;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
     }
 
     button {
       width: 100%;
+<<<<<<< HEAD
       margin-top: 18px;
+=======
+      margin-top: 20px;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
       padding: 12px;
       border: 0;
       border-radius: 8px;
       background: var(--accent);
+<<<<<<< HEAD
       color: white;
       font: inherit;
       font-weight: 600;
@@ -108,6 +166,19 @@
       color: var(--accent);
       border: 1px solid var(--accent);
       margin-top: 10px
+=======
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      margin-top: 10px;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
     }
 
     #msg {
@@ -115,6 +186,7 @@
       margin-top: 14px;
       font-size: 13px;
       color: var(--err);
+<<<<<<< HEAD
       overflow-wrap: anywhere
     }
 
@@ -126,12 +198,26 @@
       font-size: 12px;
       color: var(--muted);
       margin-top: 10px
+=======
+    }
+
+    #qr {
+      display: block;
+      margin: 12px auto;
+      width: 180px;
+      height: 180px;
+    }
+
+    [hidden] {
+      display: none !important;
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
     }
   </style>
 </head>
 
 <body>
   <main class="card">
+<<<<<<< HEAD
     <form id="loginForm">
       <h1>Sign in</h1>
       <p class="sub">Enter your email and password to continue.</p>
@@ -240,6 +326,92 @@
       try { await signOut(auth); } catch { }
       $('otpForm').hidden = true; $('loginForm').hidden = false; say('');
     });
+=======
+    <!-- Step 1: user id + password -->
+    <form id="step1">
+      <h1>Sign in</h1>
+      <p class="sub">Use your user ID and password.</p>
+      <label for="u">User ID</label><input id="u" autocomplete="username" required />
+      <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required />
+      <button type="submit">Continue</button>
+    </form>
+
+    <!-- Step 2: MFA code -->
+    <form id="step2" hidden>
+      <h1>Enter your code</h1>
+      <p class="sub">Open your authenticator app and enter the 6-digit code.</p>
+      <label for="c">6-digit code</label>
+      <input id="c" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
+      <button type="submit">Verify and sign in</button>
+    </form>
+
+    <!-- Step 3: logged in -->
+    <section id="done" hidden>
+      <h1 id="hello">Signed in</h1>
+      <p class="sub" id="role"></p>
+      <button id="setup" class="ghost">Set up two-factor authentication</button>
+      <div id="mfaBox" hidden>
+        <p class="sub">Scan this QR code with Google Authenticator or Authy, then enter the code it shows.</p>
+        <img id="qr" alt="QR code for authenticator app" />
+        <input id="ec" inputmode="numeric" maxlength="6" placeholder="6-digit code" />
+        <button id="enable">Turn on two-factor authentication</button>
+      </div>
+      <button id="logout" class="ghost">Sign out</button>
+    </section>
+
+    <div id="msg" role="alert"></div>
+  </main>
+
+  <script>
+    // Put your Render backend URL here
+    const API = 'https://myprofile-auth-api.onrender.com';
+    const $ = id => document.getElementById(id);
+    let tempToken = null;
+
+    const say = (t, ok) => { $('msg').style.color = ok ? 'var(--accent)' : 'var(--err)'; $('msg').textContent = t || ''; };
+    async function call(path, method, body) {
+      const r = await fetch(API + path, {
+        method, credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+    async function showDone() {
+      const me = await call('/api/me', 'GET');
+      // Logged in: open the portfolio (unless the user came to set up MFA)
+      if (!location.search.includes('setup')) { location.replace('index.html'); return; }
+      $('step1').hidden = $('step2').hidden = true; $('done').hidden = false;
+      $('hello').textContent = 'Hello, ' + me.username;
+      $('role').textContent = 'Role: ' + me.role;
+      say('');
+    }
+
+    $('step1').onsubmit = async e => {
+      e.preventDefault(); say('');
+      try {
+        const d = await call('/api/login', 'POST', { username: $('u').value, password: $('p').value });
+        if (d.mfaRequired) { tempToken = d.tempToken; $('step1').hidden = true; $('step2').hidden = false; $('c').focus(); }
+        else await showDone();
+      } catch (err) { say(err.message); }
+    };
+    $('step2').onsubmit = async e => {
+      e.preventDefault(); say('');
+      try { await call('/api/mfa/verify', 'POST', { tempToken, code: $('c').value }); await showDone(); }
+      catch (err) { say(err.message); }
+    };
+    $('setup').onclick = async () => {
+      try { const d = await call('/api/mfa/setup', 'POST'); $('qr').src = d.qr; $('mfaBox').hidden = false; }
+      catch (err) { say(err.message); }
+    };
+    $('enable').onclick = async () => {
+      try { await call('/api/mfa/enable', 'POST', { code: $('ec').value }); $('mfaBox').hidden = true; say('Two-factor authentication is on.', true); }
+      catch (err) { say(err.message); }
+    };
+    $('logout').onclick = async () => { await call('/api/logout', 'POST'); location.reload(); };
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
   </script>
 </body>
 

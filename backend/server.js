@@ -34,10 +34,20 @@ app.set('trust proxy', 1);
 app.use(helmet());
 app.use(express.json({ limit: '20kb' }));
 app.use(cors({
+<<<<<<< HEAD
   origin: "https://ravi16329.github.io",
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
+=======
+  origin(origin, callback) {
+    // Allow no-origin clients for health checks/curl; browser requests must match configured frontend.
+    if (!origin || origin === process.env.FRONTEND_URL) return callback(null, true);
+    return callback(new Error('Origin not allowed by CORS'));
+  },
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+>>>>>>> 68918d054ca096944e4e536314844cdde738bf19
 }));
 
 const otpLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false });
