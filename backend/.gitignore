@@ -1,4 +1,18 @@
-node_modules/
+
+# Environment secrets
 .env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+
+# Dependencies
+node_modules/
+
+# Authentication logs
+backend/logs/
 *.log
-.DS_Store
+
+# Firebase service account files
+serviceAccountKey.json
+firebase-service-account.json
