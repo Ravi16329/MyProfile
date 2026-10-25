@@ -1,18 +1,13 @@
-
-# Environment secrets
+# Environment variables and secrets
 .env
 .env.*
 !.env.example
-backend/.env
-backend/.env.*
+*serviceAccount*.json
+*service-account*.json
 
-# Dependencies
+# Node dependencies
 node_modules/
 
-# Authentication logs
+# Local authentication logs
 backend/logs/
 *.log
-
-# Firebase service account files
-serviceAccountKey.json
-firebase-service-account.json
