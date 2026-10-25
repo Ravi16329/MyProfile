@@ -8,11 +8,11 @@ const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 const { Resend } = require('resend');
+const { logEvent } = require('./logger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET;
-
 const FRONTEND_URL = process.env.FRONTEND_URL;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM;
@@ -44,9 +44,7 @@ try {
     process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '{}'
   );
 } catch {
-  throw new Error(
-    'FIREBASE_SERVICE_ACCOUNT_JSON must contain valid JSON.'
-  );
+  throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON must contain valid JSON.');
 }
 
 if (
@@ -77,21 +75,14 @@ const resend = new Resend(RESEND_API_KEY);
 // --------------------------------------------------
 
 app.set('trust proxy', 1);
-
 app.use(helmet());
-
 app.use(express.json({ limit: '20kb' }));
 
 const allowedOrigin = new URL(FRONTEND_URL).origin;
 
 app.use(cors({
   origin(origin, callback) {
-    // Permit requests without an Origin header, such as health checks.
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (origin === allowedOrigin) {
+    if (!origin || origin === allowedOrigin) {
       return callback(null, true);
     }
 
@@ -125,9 +116,6 @@ const verifyLimiter = rateLimit({
 // 5. In-memory challenges and sessions
 // --------------------------------------------------
 
-// Pending OTPs and sessions are cleared when the server restarts.
-// This version does not require a database.
-
 const challenges = new Map();
 const sessions = new Map();
 
@@ -140,21 +128,20 @@ function hash(value) {
 }
 
 function safeEqualHex(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string') {
-    return false;
-  }
-
-  if (!/^[0-9a-f]+$/i.test(a) || !/^[0-9a-f]+$/i.test(b)) {
+  if (
+    typeof a !== 'string' ||
+    typeof b !== 'string' ||
+    !/^[0-9a-f]+$/i.test(a) ||
+    !/^[0-9a-f]+$/i.test(b)
+  ) {
     return false;
   }
 
   const aa = Buffer.from(a, 'hex');
   const bb = Buffer.from(b, 'hex');
 
-  return (
-    aa.length === bb.length &&
-    crypto.timingSafeEqual(aa, bb)
-  );
+  return aa.length === bb.length &&
+    crypto.timingSafeEqual(aa, bb);
 }
 
 function bearer(req) {
@@ -170,13 +157,11 @@ function bearer(req) {
 // --------------------------------------------------
 
 function signSession(uid, email) {
-  const payload = Buffer.from(
-    JSON.stringify({
-      uid,
-      email,
-      exp: Date.now() + SESSION_TTL_MS
-    })
-  ).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    uid,
+    email,
+    exp: Date.now() + SESSION_TTL_MS
+  })).toString('base64url');
 
   const signature = crypto
     .createHmac('sha256', SESSION_SECRET)
@@ -243,6 +228,10 @@ async function requireFirebaseUser(req, res, next) {
     const token = bearer(req);
 
     if (!token) {
+      logEvent('firebase_auth_failed', 'failure', {
+        reason: 'missing_token'
+      });
+
       return res.status(401).json({
         error: 'Firebase ID token is required.'
       });
@@ -256,19 +245,26 @@ async function requireFirebaseUser(req, res, next) {
       !decodedToken.email ||
       decodedToken.email_verified !== true
     ) {
+      logEvent('firebase_auth_failed', 'failure', {
+        reason: 'email_not_verified'
+      });
+
       return res.status(403).json({
         error: 'Verify your email address before using email MFA.'
       });
     }
 
     req.firebaseUser = decodedToken;
-
     return next();
   } catch (error) {
     console.error(
       'Firebase token verification failed:',
       error.message
     );
+
+    logEvent('firebase_auth_failed', 'failure', {
+      reason: 'invalid_or_expired_token'
+    });
 
     return res.status(401).json({
       error: 'Firebase session is invalid or expired. Please sign in again.'
@@ -296,7 +292,6 @@ app.post(
     const uid = req.firebaseUser.uid;
     const email = req.firebaseUser.email.toLowerCase();
 
-    // Invalidate an earlier OTP for this user.
     challenges.delete(uid);
 
     const code = crypto
@@ -316,11 +311,9 @@ app.post(
         from: EMAIL_FROM,
         to: [email],
         subject: 'Your MyProfile login verification code',
-
         text:
           `Your MyProfile verification code is ${code}. ` +
           'It expires in 5 minutes. If you did not try to sign in, ignore this email.',
-
         html: `
           <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto">
             <h2>MyProfile login verification</h2>
@@ -341,6 +334,10 @@ app.post(
           error?.message || 'No email response returned.'
         );
 
+        logEvent('mfa_email_failed', 'failure', {
+          reason: 'provider_rejected_request'
+        });
+
         return res.status(502).json({
           error: 'Email delivery failed. Check your Resend sender and domain configuration.'
         });
@@ -355,6 +352,8 @@ app.post(
         attempts: 0
       });
 
+      logEvent('mfa_code_sent', 'success');
+
       return res.json({
         message: 'Verification code sent.',
         challengeId,
@@ -362,6 +361,10 @@ app.post(
       });
     } catch (error) {
       console.error('Email provider error:', error.message);
+
+      logEvent('mfa_email_failed', 'failure', {
+        reason: 'provider_exception'
+      });
 
       return res.status(502).json({
         error: 'Unable to send verification email right now.'
@@ -386,6 +389,10 @@ app.post(
       !/^\d{6}$/.test(code) ||
       typeof challengeId !== 'string'
     ) {
+      logEvent('mfa_verification_failed', 'failure', {
+        reason: 'invalid_input'
+      });
+
       return res.status(400).json({
         error: 'Enter the six-digit code from your email.'
       });
@@ -398,6 +405,10 @@ app.post(
       !challenge ||
       challenge.challengeId !== challengeId
     ) {
+      logEvent('mfa_verification_failed', 'failure', {
+        reason: 'challenge_not_found'
+      });
+
       return res.status(400).json({
         error: 'Code not found. Request a new code.'
       });
@@ -405,6 +416,10 @@ app.post(
 
     if (Date.now() > challenge.expiresAt) {
       challenges.delete(uid);
+
+      logEvent('mfa_verification_failed', 'failure', {
+        reason: 'expired_code'
+      });
 
       return res.status(400).json({
         error: 'Code expired. Request a new code.'
@@ -416,12 +431,20 @@ app.post(
     if (challenge.attempts > MAX_ATTEMPTS) {
       challenges.delete(uid);
 
+      logEvent('mfa_verification_failed', 'failure', {
+        reason: 'too_many_attempts'
+      });
+
       return res.status(429).json({
         error: 'Too many incorrect attempts. Request a new code.'
       });
     }
 
     if (!safeEqualHex(hash(code), challenge.codeHash)) {
+      logEvent('mfa_verification_failed', 'failure', {
+        reason: 'incorrect_code'
+      });
+
       return res.status(400).json({
         error: 'Incorrect code. Please try again.'
       });
@@ -436,6 +459,8 @@ app.post(
       uid,
       expiresAt: Date.now() + SESSION_TTL_MS
     });
+
+    logEvent('mfa_verification_success', 'success');
 
     return res.json({
       message: 'MFA verified. Login successful.',
@@ -488,6 +513,8 @@ app.post('/api/auth/logout', (req, res) => {
     sessions.delete(hash(token));
   }
 
+  logEvent('logout', 'success');
+
   return res.json({
     message: 'Logged out.'
   });
@@ -516,6 +543,8 @@ app.use((err, _req, res, _next) => {
   }
 
   console.error('Unhandled server error:', err.message);
+
+  logEvent('server_error', 'failure');
 
   return res.status(500).json({
     error: 'Internal server error.'
